@@ -1,0 +1,1002 @@
+---
+title: "30 Day Charts Challenge"
+output: html_document
+---
+
+```{r Packages}
+
+install.packages("viridis") 
+install.packages("viridisLite")
+install.packages("RColorBrewer")
+install.packages("tidycensus")
+install.packages("gganimate")
+install.packages("animation")
+install.packages("transformr")
+install.packages("readxl")
+library(ggplot2)
+library("tidycensus")
+library("viridis")  
+library("viridisLite")
+library("RColorBrewer")
+library("tidycensus")
+library(dplyr)
+library("gganimate")
+library("animation")
+library("transformr")
+library("readxl")
+library(ggrepel)
+library(ggimage)
+library(RCurl)
+
+
+census_api_key('041f118e070667dea491978da5e7c2bedb842535')
+varlist20 = load_variables(2020, "acs5", cache = TRUE)
+
+
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r Comparisons}
+# Day 1: part-to-whole
+edu <- read_excel("~/Documents/RStudio Data/education attainment.xlsx")
+
+ggplot(edu, aes(fill=Race, y=Perct, x=Degree)) + 
+    geom_bar(position="stack", stat="identity") +
+    scale_x_discrete(limits = c("Associate's Degree","Bachelor's Degree",
+                                "Master's Degree","Doctor's Degree")) +
+    scale_fill_viridis(discrete = "T",option = "turbo", direction = 1) +
+    coord_flip() +
+    labs(title = "The percentage of degrees conferred by race/ethnicity varied 
+         by level of degree (2018-2019)",
+         caption  = "Source: National Center for Education Statistics",
+         x = "Type of Degree",
+         y = "Percentage (%)") +
+         theme_minimal() +
+         theme(legend.position = "bottom",
+               plot.background = element_rect(fill = "mistyrose")) 
+
+
+# Day 2: pictogram
+bucs <- read_excel("~/Documents/RStudio Data/bucs data.xlsx")
+
+url.logo <- getURL("https://raw.githubusercontent.com/statsbylopez/BlogPosts/master/nfl_teamlogos.csv")
+df.logos <- read.csv(text = url.logo)
+
+bucs <- bucs %>% 
+  left_join(df.logos, by = "team_code")
+
+ggplot(bucs, aes(x=Age, y=Total, fill=team_code)) + 
+  geom_image(aes(image = url), size = 0.15, 
+             position=position_dodge(width=0.5)) + 
+  scale_y_continuous(limits = c(0,25), 
+                    breaks = c(0,5,10,15,20,25)) + 
+  xlab("Age Groups") + ylab("Number of Active Players") + 
+  theme(panel.background = element_rect(fill = "forestgreen", 
+                                        colour = "forestgreen"), 
+             panel.grid.minor.y = element_blank(),
+             panel.grid.major.y = element_blank(),
+        axis.text = element_text(size = 12),
+        axis.title = element_text(size = 12),
+        plot.title = element_text(size = 15),
+        legend.position = "none") +
+  labs(title = "2021 Bucs Super Bowl Players Age Groups", 
+       subtitle = "Source: ESPN") 
+
+
+# Day 3: historical
+unemp <- read_excel("~/Documents/RStudio Data/US Unemployment Rates.xlsx")
+unemp <- unemp %>% group_by(Year) %>%
+                   mutate(total = sum(Rate)) %>%
+                   group_by(Year) %>%
+                   mutate(avg = round(mean(Rate),1)) %>%
+                   select(Year, avg) %>%
+                   distinct()
+
+ggplot(unemp, aes(Year, avg, label = avg)) + 
+       theme_minimal() +
+       geom_line(aes(color = "forestgreen"), stat = "identity",
+                 position = "dodge", size = 0.5, linetype = "dashed") +
+       geom_point(aes(color = "forestgreen"), stat = "identity",
+                  position = "dodge", size = 1.5)  +
+       #geom_text(hjust=0, vjust=-2, size = 3) +
+       geom_label_repel(aes(label = avg, color = "forestgreen"),
+                        box.padding   = 0.35, size = 2.5,
+                        segment.color = 'forestgreen') +
+       scale_color_manual(values = c("forestgreen")) +
+       scale_x_continuous(limits = c(2000,2020),
+                        breaks = c(2000,2001,2002,2003,2004,2005,2006,2007,2008,
+                                   2009,2010,2011,2012,2013,2014,2015,2016,2017,
+                                   2018,2019,2020)) +
+       ylab("Average Unemployment Rate") +
+       labs(title = "Average U.S. Unemployment Rates by Year (2000-2020)",
+            caption = "Source: Bureau Labor od Statistics (BLS)") +
+       theme(axis.text.x=element_text(angle = 60,hjust = 0.5,size = 8),
+             legend.position = "none")
+
+
+# Day 4: flora
+# add flower petals: https://eric.netlify.app/2017/11/24/using-a-multivariate-normal-to-draw-a-flower-in-ggplot2/
+
+library(png)
+library(jpeg)
+sunflower <- readPNG('~/Downloads/sunflower.png')
+viburnum <- readPNG('~/Downloads/viburnum.png')
+dahlias <- readPNG('~/Downloads/dahlias.png')
+tulips <- readPNG('~/Downloads/tulip.png')
+gazania <- readPNG('~/Downloads/gazania.png')
+treepeony <- readPNG('~/Downloads/treepeony.png')
+azalea <- readPNG('~/Downloads/azalea.png')
+daisy <- readPNG('~/Downloads/daisy.png')
+syrian <- readPNG('~/Downloads/syrian.png')
+rose <- readPNG('~/Downloads/rose.png')
+
+flora <- read_excel("~/Documents/RStudio Data/flora data.xlsx")
+
+# Create leaf
+geom_leaf <- function(x, xend, f, xoffset = 0, yoffset = 0, 
+                      xflip = 1, yflip = 1, ...) {
+
+  .x <- seq(x, xend, length.out = 100)
+  .y <- f(.x)
+  
+  df <- tibble(x = c(.x, .y), y = c(.y, .x))
+  df$x <- xflip * df$x + xoffset
+  df$y <- yflip * df$y + yoffset
+  
+  geom_polygon(aes(x = x, y = y), data = df, ...)
+}
+f <- function(x) x^2 / 2
+
+ggplot(flora, aes(x, AvgFT, fill = Flower)) + 
+       geom_bar(stat = "identity",position = "dodge", 
+                width=0.08, fill = "forestgreen") +
+       geom_hline(yintercept = 0, color = "forestgreen", size=1.5) +
+       geom_leaf(0, 2, f, 1, 1, 0.3, fill = "forestgreen", color = "forestgreen") +
+       geom_leaf(0, 2, f, 1, 3, -0.3, fill = "forestgreen", color = "forestgreen") +
+       geom_leaf(0, 2, f, 2, 1, 0.3, fill = "forestgreen", color = "forestgreen") +
+       geom_leaf(0, 2, f, 2, 3, -0.3, fill = "forestgreen", color = "forestgreen") +
+       geom_leaf(0, 2, f, 2, 5, 0.3, fill = "forestgreen", color = "forestgreen") +
+       geom_leaf(0, 2, f, 2, 7, -0.3, fill = "forestgreen", color = "forestgreen") +
+       geom_leaf(0, 2, f, 2, 9, 0.3, fill = "forestgreen", color = "forestgreen") +
+       geom_leaf(0, 2, f, 3, 1, 0.3, fill = "forestgreen", color = "forestgreen") +
+       geom_leaf(0, 2, f, 4, 0, 0.3, fill = "forestgreen", color = "forestgreen") +
+       geom_leaf(0, 2, f, 5, 0, 0.3, fill = "forestgreen", color = "forestgreen") +
+       geom_leaf(0, 2, f, 6, 1, 0.3, fill = "forestgreen", color = "forestgreen") +
+       geom_leaf(0, 2, f, 6, 2.5, -0.3, fill = "forestgreen", color = "forestgreen") +
+       geom_leaf(0, 2, f, 7, 1, 0.3, fill = "forestgreen", color = "forestgreen") +
+       geom_leaf(0, 2, f, 7, 3, -0.3, fill = "forestgreen", color = "forestgreen") +
+       geom_leaf(0, 2, f, 7, 5, 0.3, fill = "forestgreen", color = "forestgreen") +
+       geom_leaf(0, 2, f, 7, 7, -0.3, fill = "forestgreen", color = "forestgreen") +
+       geom_leaf(0, 2, f, 7, 9, 0.3, fill = "forestgreen", color = "forestgreen") +
+       geom_leaf(0, 2, f, 8, 0.5, 0.3, fill = "forestgreen", color = "forestgreen") +
+       geom_leaf(0, 2, f, 9, 1, 0.3, fill = "forestgreen", color = "forestgreen") +
+       geom_leaf(0, 2, f, 9, 3, -0.3, fill = "forestgreen", color = "forestgreen") +
+       geom_leaf(0, 2, f, 9, 5, 0.3, fill = "forestgreen", color = "forestgreen") +
+       geom_leaf(0, 2, f, 9, 7, -0.3, fill = "forestgreen", color = "forestgreen") +
+       geom_leaf(0, 2, f, 10, 1, 0.3, fill = "forestgreen", color = "forestgreen") +
+       geom_leaf(0, 2, f, 10, 3, -0.3, fill = "forestgreen", color = "forestgreen") +
+       geom_leaf(0, 2, f, 10, 5, 0.3, fill = "forestgreen", color = "forestgreen") +
+       geom_leaf(0, 2, f, 10, 7, -0.3, fill = "forestgreen", color = "forestgreen") +
+       annotation_raster(sunflower, ymin = 6, ymax = 7.5, xmin = .5, xmax = 1.5) + 
+       annotation_raster(viburnum, ymin = 10.5, ymax = 12, xmin = 1.6, xmax = 2.3) +
+       annotation_raster(dahlias, ymin = 3, ymax = 4.5, xmin = 2.5, xmax = 3.35) +
+       annotation_raster(tulips, ymin = 1.25, ymax = 2.5, xmin = 3.7, xmax = 4.4) +
+       annotation_raster(gazania, ymin = 0.75, ymax = 2, xmin = 4.7, xmax = 5.3) +
+       annotation_raster(treepeony, ymin = 3.75, ymax = 5, xmin = 5.5, xmax = 6.45) +
+       annotation_raster(azalea, ymin = 10.5, ymax = 12, xmin = 6.5, xmax = 7.5) +
+       annotation_raster(daisy, ymin = 1.75, ymax = 3, xmin = 7.5, xmax = 8.45) +
+       annotation_raster(syrian, ymin = 9.5, ymax = 11, xmin = 8.35, xmax = 9.45) +
+       annotation_raster(rose, ymin = 10, ymax = 11.5, xmin = 9.5, xmax = 10.45) + 
+       scale_x_discrete(limits=c("Sunflower","Viburnum","Dahlias","Tulips","Gazania",
+                                 "Tree\nPeony", "Azalea", "Shasta\nDaisy", 
+                                 "Syrian\nHibiscus", "Rose")) +
+       ylab("Average Height (ft)") + xlab(" ") +
+       labs(title = "Average Mature Size of Flowers",
+            caption = "Source: The Spruce") +
+       theme_minimal() +
+       theme(legend.position = "bottom",
+             plot.background = element_rect(fill = "lightcyan1"),
+             panel.grid = element_line(color = "lightcyan1"),
+             axis.text.x = element_text(size = 8),
+             axis.text.y = element_text(size = 14),
+             axis.title.y = element_text(size = 14),
+             plot.title = element_text(size = 16, hjust = 0.5)) 
+ 
+
+# Day 5: slope
+data("diamonds")
+
+ggplot(diamonds, aes(carat, price)) +
+  geom_point(aes(shape = factor(cut), color = factor(cut))) + 
+  geom_smooth(method='lm', se = FALSE, color = "red") +
+  xlab("Amount of Carats") + ylab("Price ($)") +
+  labs(title = "Total Amount of Carats vs. Price",
+       color = "Type of Cut",
+       shape = "Type of Cut") +
+  theme_minimal() 
+
+
+# Day 6: data day - OWID
+library(magrittr)
+library(lubridate)
+library(tidyr)
+
+dr <- read_excel("~/Downloads/owid-covid-data.xlsx")
+dr <- dr %>% filter(iso_code == "DOM", people_vaccinated > 0, date < '2022-01-01') %>% 
+   mutate(Month = case_when(date == ymd('2021-02-16')  ~ "Feb",
+          date == ymd('2021-02-17')  ~ "Feb",date == ymd('2021-02-18')  ~ "Feb",
+          date == ymd('2021-02-19')  ~ "Feb",date == ymd('2021-02-20')  ~ "Feb",
+          date == ymd('2021-02-21')  ~ "Feb",date == ymd('2021-02-24')  ~ "Feb",
+          date == ymd('2021-03-01') ~ "Mar",date == ymd('2021-03-02') ~ "Mar",
+          date == ymd('2021-03-03') ~ "Mar",date == ymd('2021-03-04') ~ "Mar",
+          date == ymd('2021-03-05') ~ "Mar",date == ymd('2021-03-06') ~ "Mar",
+          date == ymd('2021-03-08') ~ "Mar",date == ymd('2021-03-09') ~ "Mar",
+          date == ymd('2021-03-10') ~ "Mar",date == ymd('2021-03-11') ~ "Mar",
+          date == ymd('2021-03-15') ~ "Mar",date == ymd('2021-03-23') ~ "Mar",
+          date == ymd('2021-03-30') ~ "Mar",date == ymd('2021-04-14') ~ "Apr",
+          date == ymd('2021-04-25') ~ "Apr",date == ymd('2021-04-26') ~ "Apr",
+          date == ymd('2021-04-27') ~ "Apr",date == ymd('2021-04-28') ~ "Apr",
+          date == ymd('2021-04-29') ~ "Apr",date == ymd('2021-04-30') ~ "Apr",
+          date == ymd('2021-05-01') ~ "May", date == ymd('2021-05-02') ~ "May",
+          date == ymd('2021-05-03') ~ "May", date == ymd('2021-05-04') ~ "May",
+          date == ymd('2021-05-05') ~ "May", date == ymd('2021-05-06') ~ "May",
+          date == ymd('2021-05-07') ~ "May", date == ymd('2021-05-08') ~ "May",
+          date == ymd('2021-05-09') ~ "May", date == ymd('2021-05-10') ~ "May",
+          date == ymd('2021-05-11') ~ "May", date == ymd('2021-05-12') ~ "May",
+          date == ymd('2021-05-13') ~ "May", date == ymd('2021-05-14') ~ "May",
+          date == ymd('2021-05-15') ~ "May", date == ymd('2021-05-16') ~ "May",
+          date == ymd('2021-05-17') ~ "May", date == ymd('2021-05-18') ~ "May",
+          date == ymd('2021-05-19') ~ "May", date == ymd('2021-05-20') ~ "May",
+          date == ymd('2021-05-21') ~ "May", date == ymd('2021-05-22') ~ "May",
+          date == ymd('2021-05-23') ~ "May", date == ymd('2021-05-24') ~ "May",
+          date == ymd('2021-05-25') ~ "May", date == ymd('2021-05-26') ~ "May",
+          date == ymd('2021-05-27') ~ "May", date == ymd('2021-05-28') ~ "May",
+          date == ymd('2021-05-29') ~ "May", date == ymd('2021-05-30') ~ "May",
+          date == ymd('2021-05-31') ~ "May", date == ymd('2021-06-01') ~ "Jun",
+          date == ymd('2021-06-02') ~ "Jun",date == ymd('2021-06-03') ~ "Jun",
+          date == ymd('2021-06-04') ~ "Jun",date == ymd('2021-06-05') ~ "Jun",
+          date == ymd('2021-06-06') ~ "Jun",date == ymd('2021-06-07') ~ "Jun",
+          date == ymd('2021-06-08') ~ "Jun",date == ymd('2021-06-09') ~ "Jun",
+          date == ymd('2021-06-10') ~ "Jun",date == ymd('2021-06-11') ~ "Jun",
+          date == ymd('2021-06-12') ~ "Jun",date == ymd('2021-06-13') ~ "Jun",
+          date == ymd('2021-06-14') ~ "Jun",date == ymd('2021-06-15') ~ "Jun",
+          date == ymd('2021-06-16') ~ "Jun",date == ymd('2021-06-17') ~ "Jun",
+          date == ymd('2021-06-18') ~ "Jun",date == ymd('2021-06-19') ~ "Jun",
+          date == ymd('2021-06-20') ~ "Jun",date == ymd('2021-06-21') ~ "Jun",
+          date == ymd('2021-06-22') ~ "Jun",date == ymd('2021-06-23') ~ "Jun",
+          date == ymd('2021-06-24') ~ "Jun",date == ymd('2021-06-25') ~ "Jun",
+          date == ymd('2021-06-26') ~ "Jun",date == ymd('2021-06-27') ~ "Jun",
+          date == ymd('2021-06-28') ~ "Jun",date == ymd('2021-06-29') ~ "Jun",
+          date == ymd('2021-06-30') ~ "Jun",date == ymd('2021-07-03') ~ "Jul",
+          date == ymd('2021-07-04') ~ "Jul",date == ymd('2021-07-05') ~ "Jul",
+          date == ymd('2021-07-06') ~ "Jul",date == ymd('2021-07-07') ~ "Jul",
+          date == ymd('2021-07-08') ~ "Jul",date == ymd('2021-07-09') ~ "Jul",
+          date == ymd('2021-07-10') ~ "Jul",date == ymd('2021-07-11') ~ "Jul",
+          date == ymd('2021-07-12') ~ "Jul",date == ymd('2021-07-13') ~ "Jul",
+          date == ymd('2021-07-14') ~ "Jul",date == ymd('2021-07-15') ~ "Jul",
+          date == ymd('2021-07-16') ~ "Jul",date == ymd('2021-07-17') ~ "Jul",
+          date == ymd('2021-07-18') ~ "Jul",date == ymd('2021-07-19') ~ "Jul",
+          date == ymd('2021-07-20') ~ "Jul",date == ymd('2021-07-21') ~ "Jul",
+          date == ymd('2021-07-22') ~ "Jul",date == ymd('2021-07-23') ~ "Jul",
+          date == ymd('2021-07-24') ~ "Jul",date == ymd('2021-07-25') ~ "Jul",
+          date == ymd('2021-07-26') ~ "Jul",date == ymd('2021-07-27') ~ "Jul",
+          date == ymd('2021-07-28') ~ "Jul",date == ymd('2021-07-29') ~ "Jul",
+          date == ymd('2021-07-30') ~ "Jul",date == ymd('2021-07-31') ~ "Jul",
+          date == ymd('2021-08-01') ~ "Aug", date == ymd('2021-08-02') ~ "Aug",
+          date == ymd('2021-08-03') ~ "Aug", date == ymd('2021-08-04') ~ "Aug",
+          date == ymd('2021-08-05') ~ "Aug", date == ymd('2021-08-06') ~ "Aug",
+          date == ymd('2021-08-07') ~ "Aug", date == ymd('2021-08-08') ~ "Aug",
+          date == ymd('2021-08-09') ~ "Aug", date == ymd('2021-08-10') ~ "Aug",
+          date == ymd('2021-08-11') ~ "Aug", date == ymd('2021-08-12') ~ "Aug",
+          date == ymd('2021-08-13') ~ "Aug", date == ymd('2021-08-14') ~ "Aug",
+          date == ymd('2021-08-15') ~ "Aug", date == ymd('2021-08-16') ~ "Aug",
+          date == ymd('2021-08-17') ~ "Aug", date == ymd('2021-08-18') ~ "Aug",
+          date == ymd('2021-08-19') ~ "Aug", date == ymd('2021-08-20') ~ "Aug",
+          date == ymd('2021-08-21') ~ "Aug", date == ymd('2021-08-22') ~ "Aug",
+          date == ymd('2021-08-23') ~ "Aug", date == ymd('2021-08-24') ~ "Aug",
+          date == ymd('2021-08-25') ~ "Aug", date == ymd('2021-08-26') ~ "Aug",
+          date == ymd('2021-08-27') ~ "Aug", date == ymd('2021-08-28') ~ "Aug",
+          date == ymd('2021-08-29') ~ "Aug", date == ymd('2021-08-30') ~ "Aug",
+          date == ymd('2021-08-31') ~ "Aug", date == ymd('2021-09-01') ~ "Sep",
+          date == ymd('2021-09-02') ~ "Sep",date == ymd('2021-09-03') ~ "Sep",
+          date == ymd('2021-09-04') ~ "Sep",date == ymd('2021-09-05') ~ "Sep",
+          date == ymd('2021-09-06') ~ "Sep",date == ymd('2021-09-07') ~ "Sep",
+          date == ymd('2021-09-08') ~ "Sep",date == ymd('2021-09-09') ~ "Sep",
+          date == ymd('2021-09-10') ~ "Sep",date == ymd('2021-09-11') ~ "Sep",
+          date == ymd('2021-09-12') ~ "Sep",date == ymd('2021-09-13') ~ "Sep",
+          date == ymd('2021-09-14') ~ "Sep",date == ymd('2021-09-15') ~ "Sep",
+          date == ymd('2021-09-16') ~ "Sep",date == ymd('2021-09-17') ~ "Sep",
+          date == ymd('2021-09-18') ~ "Sep",date == ymd('2021-09-19') ~ "Sep",
+          date == ymd('2021-09-20') ~ "Sep",date == ymd('2021-09-21') ~ "Sep",
+          date == ymd('2021-09-22') ~ "Sep",date == ymd('2021-09-23') ~ "Sep",
+          date == ymd('2021-09-24') ~ "Sep",date == ymd('2021-09-25') ~ "Sep",
+          date == ymd('2021-09-26') ~ "Sep",date == ymd('2021-09-27') ~ "Sep",
+          date == ymd('2021-09-28') ~ "Sep",date == ymd('2021-09-29') ~ "Sep",
+          date == ymd('2021-09-30') ~ "Sep",date == ymd('2021-09-31') ~ "Sep",
+          date == ymd('2021-10-01') ~ "Oct", date == ymd('2021-10-02') ~ "Oct",
+          date == ymd('2021-10-03') ~ "Oct", date == ymd('2021-10-04') ~ "Oct",
+          date == ymd('2021-10-05') ~ "Oct", date == ymd('2021-10-06') ~ "Oct",
+          date == ymd('2021-10-07') ~ "Oct", date == ymd('2021-10-08') ~ "Oct",
+          date == ymd('2021-10-09') ~ "Oct", date == ymd('2021-10-10') ~ "Oct",
+          date == ymd('2021-10-11') ~ "Oct", date == ymd('2021-10-12') ~ "Oct",
+          date == ymd('2021-10-13') ~ "Oct", date == ymd('2021-10-14') ~ "Oct",
+          date == ymd('2021-10-15') ~ "Oct", date == ymd('2021-10-16') ~ "Oct",
+          date == ymd('2021-10-17') ~ "Oct", date == ymd('2021-10-18') ~ "Oct",
+          date == ymd('2021-10-19') ~ "Oct", date == ymd('2021-10-20') ~ "Oct",
+          date == ymd('2021-10-21') ~ "Oct", date == ymd('2021-10-22') ~ "Oct",
+          date == ymd('2021-10-23') ~ "Oct", date == ymd('2021-10-24') ~ "Oct",
+          date == ymd('2021-10-25') ~ "Oct", date == ymd('2021-10-26') ~ "Oct",
+          date == ymd('2021-10-27') ~ "Oct", date == ymd('2021-10-28') ~ "Oct",
+          date == ymd('2021-10-29') ~ "Oct", date == ymd('2021-10-30') ~ "Oct",
+          date == ymd('2021-10-31') ~ "Oct", date == ymd('2021-11-01') ~ "Nov",
+          date == ymd('2021-11-02') ~ "Nov",date == ymd('2021-11-03') ~ "Nov",
+          date == ymd('2021-11-04') ~ "Nov",date == ymd('2021-11-05') ~ "Nov",
+          date == ymd('2021-11-06') ~ "Nov",date == ymd('2021-11-07') ~ "Nov",
+          date == ymd('2021-11-08') ~ "Nov",date == ymd('2021-11-09') ~ "Nov",
+          date == ymd('2021-11-10') ~ "Nov",date == ymd('2021-11-11') ~ "Nov",
+          date == ymd('2021-11-12') ~ "Nov",date == ymd('2021-11-13') ~ "Nov",
+          date == ymd('2021-11-14') ~ "Nov",date == ymd('2021-11-15') ~ "Nov",
+          date == ymd('2021-11-16') ~ "Nov",date == ymd('2021-11-17') ~ "Nov",
+          date == ymd('2021-11-18') ~ "Nov",date == ymd('2021-11-19') ~ "Nov",
+          date == ymd('2021-11-20') ~ "Nov",date == ymd('2021-11-21') ~ "Nov",
+          date == ymd('2021-11-22') ~ "Nov",date == ymd('2021-11-23') ~ "Nov",
+          date == ymd('2021-11-24') ~ "Nov",date == ymd('2021-11-25') ~ "Nov",
+          date == ymd('2021-11-26') ~ "Nov",date == ymd('2021-11-27') ~ "Nov",
+          date == ymd('2021-11-28') ~ "Nov",date == ymd('2021-11-29') ~ "Nov",
+          date == ymd('2021-11-30') ~ "Nov",date == ymd('2021-12-01') ~ "Dec",
+          date == ymd('2021-12-02') ~ "Dec",date == ymd('2021-12-03') ~ "Dec",
+          date == ymd('2021-12-04') ~ "Dec",date == ymd('2021-12-05') ~ "Dec",
+          date == ymd('2021-12-06') ~ "Dec",date == ymd('2021-12-07') ~ "Dec",
+          date == ymd('2021-12-08') ~ "Dec",date == ymd('2021-12-09') ~ "Dec",
+          date == ymd('2021-12-10') ~ "Dec",date == ymd('2021-12-11') ~ "Dec",
+          date == ymd('2021-12-12') ~ "Dec",date == ymd('2021-12-13') ~ "Dec",
+          date == ymd('2021-12-14') ~ "Dec",date == ymd('2021-12-15') ~ "Dec",
+          date == ymd('2021-12-16') ~ "Dec",date == ymd('2021-12-17') ~ "Dec",
+          date == ymd('2021-12-18') ~ "Dec",date == ymd('2021-12-19') ~ "Dec",
+          date == ymd('2021-12-20') ~ "Dec",date == ymd('2021-12-21') ~ "Dec",
+          date == ymd('2021-12-22') ~ "Dec",date == ymd('2021-12-23') ~ "Dec",
+          date == ymd('2021-12-24') ~ "Dec",date == ymd('2021-12-25') ~ "Dec",
+          date == ymd('2021-12-26') ~ "Dec",date == ymd('2021-12-27') ~ "Dec",
+          date == ymd('2021-12-28') ~ "Dec",date == ymd('2021-12-29') ~ "Dec",
+          date == ymd('2021-12-30') ~ "Dec",date == ymd('2021-12-31') ~ "Dec")) %>%
+          select(date, Month, total_vaccinations_per_hundred, new_cases,
+                 people_vaccinated_per_hundred, total_deaths)
+
+dr <- dr %>% group_by(Month) %>%
+             mutate(nc100 = (mean(new_cases))/100,
+                    td100 = (mean(total_deaths))/100,
+                    tv100 = mean(total_vaccinations_per_hundred),
+                    pv100 = mean(people_vaccinated_per_hundred)) %>%
+             #replace_na(list(totpfv = 0)) %>%
+             select(Month, nc100, td100, tv100, pv100) %>%
+             distinct()
+
+Month <- c("Jan")
+nc100 <- 0
+td100 <- 0
+tv100 <- 0
+pv100 <- 0
+dr1 <- data.frame(Month, nc100, td100, tv100, pv100)
+
+dr <- rbind(dr1,dr)
+
+
+install.packages("reshape")
+library(reshape)
+df <- data.frame(x = seq_along(dr[, 1]), dr)
+df <- melt(dr, id.vars = "Month")
+
+ggplot(df, aes(x = Month, y = value, color = variable, group = variable)) + 
+       scale_x_discrete(limits = c("Jan","Feb","Mar","Apr","May","Jun",
+                                   "Jul","Aug","Sep","Oct","Nov","Dec")) +
+       geom_line(size = 1.5) +
+       scale_y_continuous(breaks=seq(0, 150, 50),
+                          labels =c('0', '50', '100', '150'),
+                          limits = c(0, 150)) +
+       scale_color_manual(labels = c("Average Number of New Cases", 
+                                     "Average Number of Total Deaths", 
+                                     "Average Number of Vaccines Distributed", 
+                                     "Average Number of People Vaccinated"),
+                          values = c("red4", "black", "mediumblue", "darkgoldenrod1")) +
+       ylab("Population per 100") +
+       labs(title = "Average COVID-19 Data Rates for Dominican Republic in 2021",
+            subtitle = "Rates have been adjusted per 100 people",
+            caption = "Source: Our World in Data",
+            color = " ") +
+       theme_minimal() +
+       theme(legend.position = "bottom") +
+       guides(color=guide_legend(nrow=2, byrow=TRUE))
+
+# Total number of COVID-19 vaccination doses administered
+
+# total_vaccinations_per_hundred
+# new_cases 
+# people_vaccinated_per_hundred
+# total_deaths
+
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r Distribution}
+# Day 7: physical - SKIP
+
+
+# Day 8: mountains - SKIP
+
+
+# Day 9: statistics - SKIP
+
+
+# Day 10: experimental - SKIP
+
+
+# Day 11: circular
+edu <- read_excel("~/Documents/RStudio Data/education attainment.xlsx")
+edu <- edu %>% filter(Percent > 0) %>% 
+               mutate(Percent = round(Percent, 1)) %>%
+               select(Gender, Degrees, Percent)
+
+ggplot(edu, aes(x = "", y=Percent, fill = factor(Gender))) + 
+    geom_bar(width = 1, stat="identity") +
+    geom_text(aes(label = paste(Percent, "%")), color = "white",
+                position = position_stack(vjust = 0.5), fontface = "bold") +
+    scale_fill_manual(values = c("darkgoldenrod1", "red4")) +
+    labs(title = "The Percentage of Degrees conferred by Gender 
+         varied by Level of Degree (2018-2019)",
+         caption  = "Source: National Center for Education Statistics",
+         fill = "Gender", x = " ", y = " ") +
+    facet_wrap(~Degrees) +
+    theme_classic() +
+    coord_polar("y") +
+    theme(legend.position="right", 
+          plot.title = element_text(hjust=0.5),
+          axis.line = element_blank(),
+          axis.text = element_blank(),
+          axis.ticks = element_blank())
+
+
+# Day 12: data day - The Economist
+library(MetBrewer)
+econ <- read_excel("~/Documents/RStudio Data/the economist.xlsx")
+
+e1 <- ggplot(econ, aes(x = "", y=MetalTotal, fill = factor(Metals))) + 
+             geom_bar(width = 1, stat="identity") +
+             geom_text(aes(x=1.7, label = paste(MetalTotal, "%")), color = "black",
+                position = position_stack(vjust = 0.5), fontface = "bold") +
+    scale_fill_manual(values=met.brewer("Signac", 7)) +
+    labs(fill = " ", x = " ", y = " ",
+         title = "Metals") +
+    theme_classic() +
+    coord_polar("y") +
+    theme(legend.position="right", 
+          plot.title = element_text(hjust=0.5),
+          axis.line = element_blank(),
+          axis.text = element_blank(),
+          axis.ticks = element_blank())
+
+e2 <- ggplot(econ, aes(x = "", y=NFATotal, fill = factor(NFA))) + 
+             geom_bar(width = 1, stat="identity") +
+             geom_text(aes(x=1.7, label = paste(NFATotal, "%")), color = "black",
+                position = position_stack(vjust = 0.5), fontface = "bold") +
+    scale_fill_manual(values=met.brewer("Signac", 7)) +
+    labs(fill = " ", x = " ", y = " ",
+         title = "Non-Food Agriculture (NFA)") +
+    theme_classic() +
+    coord_polar("y") +
+    theme(legend.position="right", 
+          plot.title = element_text(hjust=0.5),
+          axis.line = element_blank(),
+          axis.text = element_blank(),
+          axis.ticks = element_blank())
+
+e3 <- ggplot(econ, aes(x = "", y=FoodsTotal, fill = factor(Foods))) + 
+             geom_bar(width = 1, stat="identity") +
+             geom_text(aes(x=1.7, label = paste(FoodsTotal, "%")), color = "black",
+                position = position_stack(vjust = 0.5), fontface = "bold") +
+    scale_fill_manual(values=met.brewer("Signac", 13)) +
+    labs(fill = " ", x = " ", y = " ",
+         title = "Foods") +
+    theme_classic() +
+    coord_polar("y") +
+    theme(legend.position="right", 
+          plot.title = element_text(hjust=0.5),
+          axis.line = element_blank(),
+          axis.text = element_blank(),
+          axis.ticks = element_blank())
+
+e4 <- ggplot(econ, aes(x= reorder(All_items, AllTotal), y=AllTotal, fill = Type)) +
+      geom_bar(stat = "identity",position = "dodge") +
+      scale_fill_manual(values=met.brewer("Signac", 1)) +
+      labs(y = "Weights in the Index (%)",  
+           x = "Commodity", 
+           title = "The Economist Commodity-Price Index (2015)") + 
+      theme_minimal() +
+      coord_flip() +
+      theme(legend.position = "none")
+
+e4 / (e1 |
+      e2 |
+      e3)
+
+```
+
+
+
+```{r Relationships}
+
+# Day 13: correlation
+library("ggpubr")
+data("diamonds")
+
+ggplot(diamonds, aes(carat, price)) +
+  geom_point(aes(shape = factor(cut), color = factor(cut))) + 
+  geom_smooth(method='lm', se = FALSE, color = "red") +
+  stat_cor(method = "pearson", label.x = 1, label.y = 30000) +
+  xlab("Amount of Carats") + ylab("Price ($)") +
+  labs(title = "Total Amount of Carats vs. Price",
+       color = "Type of Cut",
+       shape = "Type of Cut") +
+  theme_minimal() 
+
+
+# Day 14: 3-dimensional
+install.packages("plotly")
+library("plotly")
+data("diamonds")
+# https://plotly.com/r/3d-scatter-plots/
+
+x <- dim.l <- diamonds$x # length of diamond (mm)
+y <- dim.w <- diamonds$y # width of diamond (mm)
+z <- dim.d <- diamonds$z # depth of diamond (mm)
+
+diam <- diamonds %>% filter(x > 6.5, y < 6.5, z < 4)
+dprice <- diamonds %>% filter(price >10000)
+
+plot_ly(diam, x = ~depth, y = ~carat, z = ~price,
+        marker = list(symbol = 'diamond', size = 3)) %>%
+  add_markers(color = ~cut)
+
+
+count <- 3000
+x <- c()
+y <- c()
+z <- c()
+c <- c()
+
+for (i in 1:count) {
+  r <- i * (count - i)
+  x <- c(x, r * cos(i / 30))
+  y <- c(y, r * sin(i / 30))
+  z <- c(z, i)
+  c <- c(c, i)
+}
+
+circle <- data.frame(x, y, z, c)
+
+plot_ly(circle, x = ~x, y = ~y, z = ~z, type = 'scatter3d', mode = 'lines',
+        line = list(width = 4, color = ~c, 
+                    colorscale = 'Viridis'))
+
+plot_ly(circle, x = ~x, y = ~y, z = ~z, type = 'scatter3d', mode = 'lines',
+        line = list(width = 4, color = ~c, 
+                    colorscale = list(c(0,'gold'), c(1,'red')))) %>%
+        layout(paper_bgcolor='black', plot_bgcolor='black')
+
+plot_ly(circle, x = ~x, y = ~y, z = ~z, type = 'scatter3d', mode = 'lines',
+        line = list(width = 1, color = ~c, 
+                    colorscale = list(c(0,'gold'), c(1,'red')))) %>%
+        layout(paper_bgcolor='black', plot_bgcolor='black')
+
+plot_ly(circle, x = ~x, y = ~y, z = ~z, color = ~z, size = 0.001,
+        colors = c('white', 'black')) %>% 
+        add_markers() %>%
+        layout(paper_bgcolor='white', plot_bgcolor='white')
+
+
+# Day 15: multivariate - Diamond example
+install.packages("ggcorrplot")
+library("ggcorrplot")
+
+# Compute a correlation matrix
+# https://bookdown.org/yih_huynh/Guide-to-R-Book/diamonds.html
+diamonddata <- diamonds[, c(1,6,7,8,9,10)]
+diamonddata <- diamonddata %>% 
+               rename(length_mm = x,
+                      width_mm = y,
+                      depth_mm = z)
+
+corr <- round(cor(diamonddata), 1)
+
+ggcorrplot(corr, p.mat = cor_pmat(diamonddata),
+           hc.order = TRUE, type = "lower",
+           color = c("gold", "white", "blueviolet"),
+           outline.col = "white", lab = TRUE)
+
+# Day 16: environment
+install.packages("tidycensus")
+library(tidycensus)
+
+census_api_key('041f118e070667dea491978da5e7c2bedb842535')
+fl <- get_acs(geography='county', state = 'FL', variables = 'B01001_001',
+              year = 2020, geometry = TRUE, output = 'tidy') %>% 
+              rename(fips = GEOID) %>% 
+              select(fips, NAME, geometry)
+fl$fips <- as.numeric(fl$fips)
+
+fl_data <- read_excel("~/Documents/RStudio Data/fl oranges.xlsx")
+
+climatefl <- left_join(fl, fl_data, by = "fips")
+
+ggplot(data=climatefl) +
+  geom_sf(aes(geometry = geometry, fill = Inchess), 
+           size = 0.3, color = "white") +
+  scale_fill_gradient(low = "sandybrown", high = "turquoise4",
+                      limits = c(0,16), 
+                      breaks = c(0,5,10,15),
+                      labels = c("0 inches", "5 inches", "10 inches", "15 inches")) +
+  labs(title = "Month {as.integer(frame_time)} - Total Inches of Precipitation by County (2021)",
+       caption = "Source: NOAA National Centers for Environmental information, Climate at a Glance: County Mapping",
+       fill = "Inches of Rain") +
+  theme_void() +
+  transition_time(Month)
+
+
+# Day 17: connections - SKIP
+
+
+# Day 18: data day - OECD
+install.packages(sf)
+install.packages("raster")
+install.packages("spData")
+installed.packages("leaflet")
+library(sf)
+library("raster")
+library("spData")
+library("leaflet")
+library("cartogram")
+library(tmap)
+library(dplyr)
+library(tidyverse)
+library(tidyr)
+
+data("World")
+mexico = World %>% 
+  filter(name == c("Mexico")) %>% 
+  select(name, geometry) # %>% 
+  #st_transform("+proj=aea +lat_1=20 +lat_2=-23 +lat_0=0 +lon_0=25")
+
+costa = World %>% 
+  filter(name == c("Costa Rica")) %>% 
+  select(name, geometry) 
+
+belize = World %>% 
+  filter(name == c("Belize")) %>% 
+  select(name, geometry) 
+
+panama = World %>% 
+  filter(name == c("Panama")) %>% 
+  select(name, geometry) 
+
+honduras = World %>% 
+  filter(name == c("Honduras")) %>% 
+  select(name, geometry) 
+
+el = World %>% 
+  filter(name == c("El Salvador")) %>% 
+  select(name, geometry) 
+
+guatemala = World %>% 
+  filter(name == c("Guatemala")) %>% 
+  select(name, geometry) 
+
+nicaragua = World %>% 
+  filter(name == c("Nicaragua")) %>% 
+  select(name, geometry) 
+
+
+central <- rbind(mexico, costa, belize, panama, honduras, el, guatemala, nicaragua)
+
+
+name <- c("Mexico", "Costa Rica", "Belize", "Panama",
+          "Honduras", "El Salvador", "Guatemala", "Nicaragua")
+energy <- c(10, 50, 21.1, 17, 48, 43, 62, 57)
+central_energy <- data.frame(name, energy)
+
+map_data <- left_join(central, central_energy, by = "name")
+
+c1 <- ggplot(map_data) +
+  geom_sf(aes(geometry = geometry, fill = energy),
+          size = 0.2, color = "white") +
+  scale_fill_gradient(low = "palegreen", high = "darkgreen", 
+                       limits = c(0,62),
+                       breaks = c(0,10,20,30,40,50,60),
+                       labels = c("0%", "10%", "20%", "30%", "40%", "50%", "60%")) +
+  labs(fill = "Percent of Energy Supply (%)",
+       title = "Percent of Renewable Energy in Primary Energy Supply in Central America (2019)",
+       subtitle = "*Mexico data is from 2020",
+       caption = "Source: Organisation for Economic Co-operation and Development &
+       Belize’s National Energy Information System") +
+  theme_void() +
+  theme(legend.position = "bottom",
+        legend.key.size = unit(1, 'cm'))
+
+c2 <- ggplot(map_data, aes(x= reorder(name, energy), y=energy)) +
+      geom_bar(stat = "identity",position = "dodge", fill = "darkgreen") +
+      geom_text(aes(label=paste((format(energy)), "%")), hjust = 1.1, color = "white") +
+      theme_minimal() +
+      theme(legend.position = "none") +
+      coord_flip() +
+      labs(x = " ",
+           y = "Percent of Energy Supply (%)")
+
+(c1 | c2)
+
+```
+
+
+
+```{r Timeseries}
+# Day 19: global change - SKIP
+
+
+# Day 20: new tool & Day 21: down/upwards
+#gghilight
+bul_data <- read_excel("~/Documents/RStudio Data/Bulgaria Growth.xlsx")
+
+install.packages("gghighlight")
+library("gghighlight")
+# Can use gghighlight on maps
+
+ggplot(bul_data, aes(x=Year, y=Rate)) +
+  geom_bar(aes(fill = Rate), stat = "identity",position = "dodge") +
+  #gghighlight(Rate > 0.6) +
+  gghighlight(Rate == -1.18) +
+  labs(y = "Growth Rate", 
+       title = "Bulgaria Growth Rate by Year", 
+       caption = "Source: United Nations - World Population Prospects & MacroTrends") + 
+       theme_minimal() +
+       theme(legend.position = "none")
+
+
+# Day 22: animation
+data(popF)
+data(popM)
+
+popf <- popF %>%
+  gather(Year, popF, '1950'|'1955'|'1960'|'1965'|'1970'|'1975'
+                    |'1980'|'1985'|'1990'|'1995'|'2000'|'2005'
+                    |'2010'|'2015'|'2020') %>%
+  filter(country_code %in% c(100)) %>%
+  select(name, popF, age, Year) 
+
+popf <- popf %>%
+             add_column(Gender = "Women") # Add new column
+names(popf)[2] <- 'Pop' # Rename column
+
+popm <- popM %>%
+  gather(Year, popM, '1950'|'1955'|'1960'|'1965'|'1970'|'1975'
+                    |'1980'|'1985'|'1990'|'1995'|'2000'|'2005'
+                    |'2010'|'2015'|'2020') %>%
+  filter(country_code %in% c(100)) %>%
+  select(name,popM,age,Year)
+
+popm <- popm %>% 
+             add_column(Gender = "Men")
+names(popm)[2] <- 'Pop' 
+
+
+pop <- rbind(popf,popm) 
+pop$Year <- as.numeric(pop$Year) 
+pop <- pop %>% mutate(Pop = ifelse(Gender=='Women',1,-1)*Pop,
+                      AgeGroup = factor(age, levels=unique(age)))
+
+ggplot() +
+  aes(x = AgeGroup, y = Pop, fill = Gender) + 
+  geom_bar(data = filter(pop, Gender == "Women"), stat='identity') + 
+  geom_bar(data = filter(pop, Gender == "Men"), stat='identity') +
+  scale_y_continuous(breaks=seq(-400, 400, 100),
+                     labels =c('400 K','300 K','200 K','100', '0',
+                               '100 K','200 K','300 K', '400 K'),
+                     limits = c(-400, 400)) +
+  xlab("Age Groups") + coord_flip() + 
+  scale_fill_manual(values=c('white','#D62612')) +
+  theme(plot.background = element_rect(fill = "#00966E", color = NA),
+        panel.background = element_rect(fill = "#00966E"),
+        axis.text = element_text(color = "white"),
+        axis.title = element_text(color = "white", size = 12),
+        plot.title = element_text(color = "white"),
+      # plot.margin = unit(c(2,1.5,1,1), "cm"),
+        panel.grid = element_line(color = "#4d4d4d")) +
+  transition_time(Year) + # Choose time frame
+  labs(fill = "Gender",
+       title = "{as.integer(frame_time)} Population in Bulgaria") 
+
+# Day 23: tiles - SKIP
+
+
+# Day 24: data day - Financial Times - SKIP
+
+
+```
+
+
+
+```{r Uncertainties}
+# Day 25: trend
+Year <- c(2000,2001,2002,2003,2004,2005,2006,2007,2008,2009,2010,
+          2011,2012,2013,2014,2015,2016,2017,2018,2019,2020)
+Rent <- c(3.63,4.45,3.93,2.93,2.68,2.99,3.57,4.26,3.66,2.28,0.23,
+          1.71,2.65,2.83,3.15,3.57,3.77,3.81,3.62,3.71,3.12)
+Wage <- c(5.53,2.39,1,2.45,4.65,3.66,4.6,4.54,2.3,-1.51,2.32,3.13,
+          3.12,1.28,3.55,3.48,1.13,3.45,3.62,3.83,2.87)
+
+trend_data <- data.frame(Year,Rent,Wage)
+colors <- c("Wages" = "navyblue", "Rent" = "red")
+
+
+ggplot() + 
+  geom_line(data = trend_data, aes(x = Year, y = Wage, color = "Wages"), size = 1) +
+  geom_line(data = trend_data, aes(x = Year, y = Rent, color = "Rent"), size = 1) +
+  scale_color_manual(values = colors) +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 2000) +
+  scale_x_continuous(limits = c(2000,2020),
+                   breaks = c(2000,2001,2002,2003,2004,2005,2006,2007,2008,2009,2010,
+                              2011,2012,2013,2014,2015,2016,2017,2018,2019,2020)) +
+  xlab('Year') +
+  ylab('Inflation Rate (%)') +
+  labs(title = "Rent vs. Wage Inflation Rates (2000-2020)",
+       caption = "Source: iPropertyManagement.com",
+       color = "Legend") +
+  theme_minimal() +
+  theme(axis.text.x=element_text(angle = 60,hjust = 0.5,size = 6.5),
+        legend.position = "bottom")
+
+# https://ipropertymanagement.com/research/average-rent-by-year#rent-vs-income
+# Day 26: interactive -  SKIP
+
+
+# Day 27: future
+install.packages("wpp2019")
+library("wpp2019")
+
+data("tfr")
+data("tfrprojHigh")
+data("tfrprojMed")
+data("tfrprojLow")
+
+TFRH <- tfrprojHigh %>%
+  gather(Year, tfrprojHigh, '2020-2025'|'2025-2030'|'2030-2035'|'2035-2040'|'2040-2045'|
+                            '2045-2050'|'2050-2055'|'2055-2060'|'2060-2065'|'2065-2070'|
+                            '2070-2075'|'2075-2080'|'2080-2085'|'2085-2090'|'2090-2095'|
+                            '2095-2100') %>%
+  filter(country_code %in% c(900,840)) %>%
+  select(tfrprojHigh, name, Year)
+
+TFRM <- tfrprojMed %>%
+  gather(Year, tfrprojMed, '2020-2025'|'2025-2030'|'2030-2035'|'2035-2040'|'2040-2045'|
+                           '2045-2050'|'2050-2055'|'2055-2060'|'2060-2065'|'2065-2070'|
+                           '2070-2075'|'2075-2080'|'2080-2085'|'2085-2090'|'2090-2095'|
+                           '2095-2100') %>%
+  filter(country_code %in% c(900,840)) %>%
+  select(tfrprojMed, name, Year)
+
+TFRL <- tfrprojLow %>%
+  gather(Year, tfrprojLow, '2020-2025'|'2025-2030'|'2030-2035'|'2035-2040'|'2040-2045'|
+                           '2045-2050'|'2050-2055'|'2055-2060'|'2060-2065'|'2065-2070'|
+                           '2070-2075'|'2075-2080'|'2080-2085'|'2085-2090'|'2090-2095'|
+                           '2095-2100') %>%
+  filter(country_code %in% c(900,840)) %>%
+  select(tfrprojLow, name, Year)
+
+TFRM <- TFRM %>% mutate(Region = case_when(name == "World" ~ "WORLD", 
+                                name == "United States of America" ~ "United States")) %>%
+                 select(Year, Region,tfrprojMed)
+TFRL <- TFRL %>% mutate(Region = case_when(name == "WORLD" ~ "WORLD", 
+                                name == "United States of America" ~ "United States")) %>%
+                 select(Year, Region,tfrprojLow)
+TFRH <- TFRH %>% mutate(Region = case_when(name == "WORLD" ~ "WORLD", 
+                                name == "United States of America" ~ "United States")) %>%
+                 select(Year, Region,tfrprojHigh)
+
+
+TFR <- left_join(TFRH, TFRL)
+TFR1 <- left_join(TFR, TFRM)
+
+colors <- c("High" = "purple", "Med" = "blue", "Low" = "limegreen")
+
+ggplot(TFR1, aes(x=Year, group=Region, linetype=Region)) + 
+  geom_line(aes(y=tfrprojLow, color = "Low"), size = 1) +
+  geom_line(aes(y=tfrprojMed, color = "Med"), size = 1) +
+  geom_line(aes(y=tfrprojHigh, color = "High"), size =1) +
+  scale_color_manual(values = colors) +
+  scale_y_continuous(limits = c(1,3)) +
+  xlab('Year') +
+  ylab('Total Fertility Rate (TFR)') +
+  labs(title = "Total Fertility Rate Projections (2020-2100)",
+       subtitle = "The World vs. the United States",
+       caption = "Source: UN Population Division",
+       color = "Projection", 
+       linetype = "Country/Region") +
+  theme_minimal() +
+  theme(axis.text.x=element_text(angle = 90,hjust = 0.5,size = 8),
+        legend.position = "bottom",
+        plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5),
+        panel.grid = element_line(color = "moccasin"),
+        plot.background = element_rect(fill = "moccasin", color = NA),
+        panel.background = element_rect(fill = "moccasin"))
+
+
+# Day 28: deviations - SKIP
+
+
+# Day 29: storytellying
+
+
+# Day 30: data day - UN Population
+library(plyr)
+
+data(popF)
+data(popM)
+
+popf <- popF %>%
+  gather(Year, popF, '1950'|'1955'|'1960'|'1965'|'1970'|'1975'
+                    |'1980'|'1985'|'1990'|'1995'|'2000'|'2005'
+                    |'2010'|'2015'|'2020') %>%
+  filter(country_code %in% c(900)) %>%
+  select(name, popF, age, Year) 
+
+popf <- popf %>%
+             add_column(Gender = "Women") # Add new column
+names(popf)[2] <- 'Pop' # Rename column
+
+popm <- popM %>%
+  gather(Year, popM, '1950'|'1955'|'1960'|'1965'|'1970'|'1975'
+                    |'1980'|'1985'|'1990'|'1995'|'2000'|'2005'
+                    |'2010'|'2015'|'2020') %>%
+  filter(country_code %in% c(900)) %>%
+  select(name,popM,age,Year)
+
+popm <- popm %>% 
+             add_column(Gender = "Men")
+names(popm)[2] <- 'Pop'
+
+pop <- rbind(popf,popm) # Merge dataframes
+selected_year = 2020
+pop <- pop %>% filter(Year == (selected_year)) %>%
+               mutate(Pop = ifelse(Gender=='Women',1,-1)*Pop,
+                      AgeGroup = factor(age, levels=unique(age)))
+
+ggplot() +
+  aes(x = AgeGroup, y = Pop, fill = Gender) + 
+  geom_bar(data = filter(pop, Gender == "Women"), stat='identity') + 
+  geom_bar(data = filter(pop, Gender == "Men"), stat='identity') +
+  scale_y_continuous(breaks=seq(-400000, 400000, 100000),
+                     labels =c('400 mil', '300 mil', '200 mil', '100 mil', '0',
+                               '100 mil', '200 mil', '300 mil', '400 mil'),
+                     limits = c(-400000, 400000)) +
+  xlab("Age Groups") + ylab("Population") + coord_flip() +
+  labs(fill = "Gender",
+       title=paste(selected_year,'World Population'),
+       caption = "Source: UN Population Division") +
+  scale_fill_manual(values=c('limegreen', 'purple')) +
+  theme(plot.background = element_rect(fill = "white", color = NA),
+        panel.background = element_rect(fill = "white"),
+        axis.text = element_text(color = "black"),
+        axis.title = element_text(color = "black", size = 12),
+        plot.title = element_text(hjust = 0.5, color = "black"),
+        panel.grid = element_line(color = "gainsboro"))
+
+
+
+```
